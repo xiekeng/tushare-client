@@ -1,6 +1,7 @@
 from base import *
 
 
-print(today('20210620'))
-print(tomorrow('20210620'))
-print(yesterday('20210620'))
+d1 = datetime.datetime.strptime('19901219', '%Y%m%d')
+d2 = datetime.datetime.strptime('20210619', '%Y%m%d')
+delta = d2 - d1
+print(delta.days)

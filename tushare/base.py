@@ -1,4 +1,5 @@
 from abc import abstractmethod
+from functools import partial
 
 import tushare as ts
 import pandas as pd
@@ -8,12 +9,12 @@ import logging
 import time
 import datetime
 
-LOG_FORMAT = "%(asctime)s - %(levelname)s - %(message)s"
+LOG_FORMAT = "[%(asctime)s-%(levelname)s-%(thread)d-%(classname)s] %(message)s"
 TUSHARE_TOKEN = '0e2a13806471a7a737cec1b72271ddb19158765f4b971621be370df2'
 DB_CONN_STR = 'mysql://tushare:pwd123@127.0.0.1:3306/tushare?charset=utf8&use_unicode=1'
 DATE_FORMAT = '%Y%m%d'
 
-logging.basicConfig(level=logging.DEBUG, format=LOG_FORMAT)
+logging.basicConfig(level=logging.INFO, format=LOG_FORMAT)
 
 ts.set_token(TUSHARE_TOKEN)
 pro = ts.pro_api()
@@ -39,24 +40,35 @@ def yesterday(date=today()):
     return (current + datetime.timedelta(days=-1)).strftime(DATE_FORMAT)
 
 
-class AbstractDataRetriever:
+class AbstractDataRetriever(object):
     def __init__(self, table_name, if_exists='append'):
         self.table_name = table_name
         self.if_exists = if_exists
+        self.logger = self.CustomLogger(extra={'classname': self.__class__.__name__})
 
     def retrieve(self, **kwargs):
+        self.logger.info(f"retrieve: {kwargs}")
         df = None
-        for _ in range(3):
+        ex = None
+        retry = 3
+        for _ in range(retry):
             try:
                 df = self._get_data(**kwargs)
-            except Exception as ex:
-                logging.debug("Failed retrieving data:", ex)
+            except Exception as e:
+                self.logger.debug("Failed retrieving data:", e)
+                if _ == retry - 1:
+                    ex = e;
                 time.sleep(1)
             else:
                 break
 
         if df is not None:
             self._save(df)
+
+        if ex is not None:
+            self.logger.exception(ex)
+
+        self.logger.info(f"completed")
 
     def _save(self, df):
         df.to_sql(self.table_name, engine_ts, index=False, if_exists=self.if_exists, chunksize=5000)
@@ -68,8 +80,10 @@ class AbstractDataRetriever:
 
     def _get_data(self, **kwargs):
         if self._initialized(**kwargs):
+            self.logger.info(f"_delta: {kwargs}")
             return self._delta(**kwargs)
         else:
+            self.logger.info(f"_full: {kwargs}")
             return self._full(**kwargs)
 
     def query(self, drop_meta=True, **kwargs):
@@ -77,7 +91,7 @@ class AbstractDataRetriever:
               f"from {self.table_name} " \
               f"where {kwargs.setdefault('where', '1=1')} " \
               f"{('order by ' + kwargs.get('order_by')) if 'order_by' in kwargs.keys() else '' }"
-        print(sql)
+        self.logger.debug(f"query: {sql}")
         df = pd.read_sql_query(sql, engine_ts)
         if drop_meta and 'update_time' in df.columns:
             return df.drop(columns=['update_time'])
@@ -91,3 +105,11 @@ class AbstractDataRetriever:
     @abstractmethod
     def _delta(self, **kwargs):
         pass
+
+    class CustomLogger(object):
+        def __init__(self, logger=logging.getLogger(), extra={}):
+            self.logger = logger
+            self.extra = extra
+
+        def __getattr__(self, name):
+            return partial(getattr(self.logger, name), extra=self.extra)
