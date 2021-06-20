@@ -1,23 +1,108 @@
+import datetime
+import logging
+import threading
+import time
 from abc import abstractmethod
 from functools import partial
 
-import tushare as ts
 import pandas as pd
-from sqlalchemy import create_engine
 import pymysql
-import logging
-import time
-import datetime
+import tushare as ts
+from sqlalchemy import create_engine
 
-LOG_FORMAT = "[%(asctime)s-%(levelname)s-%(thread)d-%(classname)s] %(message)s"
+LOG_FORMAT = "[{asctime}-{levelname}-{thread}-{classname}] {message}"
 TUSHARE_TOKEN = '0e2a13806471a7a737cec1b72271ddb19158765f4b971621be370df2'
 DB_CONN_STR = 'mysql://tushare:pwd123@127.0.0.1:3306/tushare?charset=utf8&use_unicode=1'
 DATE_FORMAT = '%Y%m%d'
 
-logging.basicConfig(level=logging.INFO, format=LOG_FORMAT)
+
+class CustomFormatter(logging.Formatter):
+    def __init__(self, fmt=None, datefmt=None, style='{', validate=True):
+        super().__init__(fmt, datefmt, style, validate)
+
+    def formatMessage(self, record):
+        return self._fmt.format_map(CustomFormatter.Default(record.__dict__))
+
+    class Default(dict):
+        def __missing__(self, key):
+            return '{' + key + '}'
+
+
+def default_logger():
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(CustomFormatter(LOG_FORMAT))
+    logger.addHandler(console_handler)
+
+    return logger
+
+
+class CustomLogger(object):
+    def __init__(self, logger=default_logger(), extra={}):
+        self.logger = logger
+        self.extra = extra
+
+    def __getattr__(self, name):
+        return partial(getattr(self.logger, name), extra=self.extra)
+
+
+class ThrottleDataApi(object):
+    # func: times/min
+    THROTTLE_RATES = {
+        'daily': 500,
+        'adj_factor': 500
+    }
+
+    class RequestRecord(object):
+        def __init__(self, rate):
+            self.request_times = []
+            self.throttle_rate = rate
+            self.event = threading.Event()
+            self.reach_limit = False
+            self.lock = threading.RLock()
+            self.event.set()
+
+    # func: ([requesttime...], rate, event)
+    __request_records = {}
+
+    def __init__(self, api=ts.pro_api()):
+        self.api = api
+        for key, rate in ThrottleDataApi.THROTTLE_RATES.items():
+            ThrottleDataApi.__request_records[key] = ThrottleDataApi.RequestRecord(rate)
+
+    def __getattr__(self, name):
+        self.__allow_request(name)
+        return partial(getattr(self.api, name))
+
+    def __allow_request(self, name):
+        record = ThrottleDataApi.__request_records.get(name)
+
+        def timer_callback(request_record):
+            event.set()
+            request_record.reach_limit = False
+
+        if record:
+            history = record.request_times
+            rate = record.throttle_rate
+            event = record.event
+
+            while history and history[-1] <= time.time() - 60:
+                history.pop()
+            if len(history) >= rate:
+                with record.lock:
+                    if not record.reach_limit:
+                        event.clear()
+                        waiting_seconds = 60 + history[-1] - time.time() + 1
+                        threading.Timer(waiting_seconds, timer_callback, [record]).start()
+                        record.reach_limit = True
+
+            event.wait()
+            history.insert(0, time.time())
+
 
 ts.set_token(TUSHARE_TOKEN)
-pro = ts.pro_api()
+pro = ThrottleDataApi()
 
 pymysql.install_as_MySQLdb()
 engine_ts = create_engine(DB_CONN_STR)
@@ -44,7 +129,7 @@ class AbstractDataRetriever(object):
     def __init__(self, table_name, if_exists='append'):
         self.table_name = table_name
         self.if_exists = if_exists
-        self.logger = self.CustomLogger(extra={'classname': self.__class__.__name__})
+        self.logger = CustomLogger(extra={'classname': self.__class__.__name__})
 
     def retrieve(self, **kwargs):
         self.logger.info(f"retrieve: {kwargs}")
@@ -105,11 +190,3 @@ class AbstractDataRetriever(object):
     @abstractmethod
     def _delta(self, **kwargs):
         pass
-
-    class CustomLogger(object):
-        def __init__(self, logger=logging.getLogger(), extra={}):
-            self.logger = logger
-            self.extra = extra
-
-        def __getattr__(self, name):
-            return partial(getattr(self.logger, name), extra=self.extra)

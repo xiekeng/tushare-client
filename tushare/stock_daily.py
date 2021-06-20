@@ -10,7 +10,7 @@ class StockDaily(AbstractDataRetriever):
         super().__init__('stock_daily')
 
     def _full(self, **kwargs):
-        self.__get_stock_daily(max_worker=1)
+        self.__get_stock_daily()
 
         return None
 
@@ -42,7 +42,7 @@ class StockDaily(AbstractDataRetriever):
 
     def __get_stock_daily_internal(self, ts_code, trade_date):
         df = pro.daily(ts_code=ts_code, trade_date=trade_date)
-        self.logger.info(f'stock daily[{ts_code}, {trade_date}] {len(df)}')
+        self.logger.info(f'stock daily[{ts_code}, {trade_date}], length {len(df)}')
         self._save(df)
 
 

@@ -9,7 +9,7 @@ class StockAdjFactor(AbstractDataRetriever):
         super().__init__('stock_adj_factor')
 
     def _full(self, **kwargs):
-        self.__get_adj_factor(max_worker=1)
+        self.__get_adj_factor()
 
         return None
 
@@ -41,7 +41,7 @@ class StockAdjFactor(AbstractDataRetriever):
 
     def __get_adj_factor_internal(self, ts_code, trade_date):
         df = pro.adj_factor(ts_code=ts_code, trade_date=trade_date)
-        self.logger.info(f'adjustment factor[{ts_code}, {trade_date}] {len(df)}')
+        self.logger.info(f'adjustment factor[{ts_code}, {trade_date}], length {len(df)}')
         self._save(df)
 
 
