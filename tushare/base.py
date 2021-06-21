@@ -51,11 +51,6 @@ class CustomLogger(object):
 
 
 class ThrottleDataApi(object):
-    # func: times/min
-    THROTTLE_RATES = {
-        'daily': 500,
-        'adj_factor': 500
-    }
 
     class RequestRecord(object):
         def __init__(self, rate):
@@ -71,7 +66,7 @@ class ThrottleDataApi(object):
 
     def __init__(self, api=ts.pro_api()):
         self.api = api
-        for key, rate in ThrottleDataApi.THROTTLE_RATES.items():
+        for key, rate in config.THROTTLE_RATES.items():
             ThrottleDataApi.__request_records[key] = ThrottleDataApi.RequestRecord(rate)
 
     def __getattr__(self, name):
