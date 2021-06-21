@@ -4,16 +4,19 @@ import threading
 import time
 from abc import abstractmethod
 from functools import partial
-
+import config
 import pandas as pd
 import pymysql
 import tushare as ts
 from sqlalchemy import create_engine
 
 LOG_FORMAT = "[{asctime}-{levelname}-{thread}-{classname}] {message}"
-TUSHARE_TOKEN = '0e2a13806471a7a737cec1b72271ddb19158765f4b971621be370df2'
-DB_CONN_STR = 'mysql://tushare:pwd123@127.0.0.1:3306/tushare?charset=utf8&use_unicode=1'
 DATE_FORMAT = '%Y%m%d'
+
+ts.set_token(config.TUSHARE_TOKEN)
+
+pymysql.install_as_MySQLdb()
+engine_ts = create_engine(config.DB_CONN_STR)
 
 
 class CustomFormatter(logging.Formatter):
@@ -30,7 +33,7 @@ class CustomFormatter(logging.Formatter):
 
 def default_logger():
     logger = logging.getLogger()
-    logger.setLevel(logging.INFO)
+    logger.setLevel(logging.DEBUG)
     console_handler = logging.StreamHandler()
     console_handler.setFormatter(CustomFormatter(LOG_FORMAT))
     logger.addHandler(console_handler)
@@ -101,11 +104,7 @@ class ThrottleDataApi(object):
             history.insert(0, time.time())
 
 
-ts.set_token(TUSHARE_TOKEN)
 pro = ThrottleDataApi()
-
-pymysql.install_as_MySQLdb()
-engine_ts = create_engine(DB_CONN_STR)
 
 
 def today(date=None):
