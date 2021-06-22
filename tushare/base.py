@@ -4,11 +4,15 @@ import threading
 import time
 from abc import abstractmethod
 from functools import partial
+
+from pandas.io.sql import SQLDatabase
+
 import config
 import pandas as pd
 import pymysql
 import tushare as ts
 from sqlalchemy import create_engine
+from sqlalchemy import text
 
 LOG_FORMAT = "[{asctime}-{levelname}-{thread}-{classname}] {message}"
 DATE_FORMAT = '%Y%m%d'
@@ -16,8 +20,7 @@ DATE_FORMAT = '%Y%m%d'
 ts.set_token(config.TUSHARE_TOKEN)
 
 pymysql.install_as_MySQLdb()
-engine_ts = create_engine(config.DB_CONN_STR)
-
+engine_ts = create_engine(config.DB_CONN_STR, echo=True)
 
 class CustomFormatter(logging.Formatter):
     def __init__(self, fmt=None, datefmt=None, style='{', validate=True):
@@ -126,7 +129,6 @@ class AbstractDataRetriever(object):
         self.logger = CustomLogger(extra={'classname': self.__class__.__name__})
 
     def retrieve(self, **kwargs):
-        self.logger.info(f"retrieve: {kwargs}")
         df = None
         ex = None
         retry = 3
@@ -141,16 +143,13 @@ class AbstractDataRetriever(object):
             else:
                 break
 
-        if df is not None:
+        if df is not None and not df.empty:
             self._save(df)
 
         if ex is not None:
             self.logger.exception(ex)
 
         self.logger.info(f"completed")
-
-    def _save(self, df):
-        df.to_sql(self.table_name, engine_ts, index=False, if_exists=self.if_exists, chunksize=5000)
 
     def _initialized(self, **kwargs):
         sql = f"select count(*) from information_schema.tables where table_name = '{self.table_name}';"
@@ -170,12 +169,26 @@ class AbstractDataRetriever(object):
               f"from {self.table_name} " \
               f"where {kwargs.setdefault('where', '1=1')} " \
               f"{('order by ' + kwargs.get('order_by')) if 'order_by' in kwargs.keys() else '' }"
-        self.logger.debug(f"query: {sql}")
         df = pd.read_sql_query(sql, engine_ts)
         if drop_meta and 'update_time' in df.columns:
             return df.drop(columns=['update_time'])
         else:
             return df
+
+    def _save(self, df):
+        if self.if_exists == 'replace':
+            self._replace(df)
+        else:
+            df.to_sql(self.table_name, engine_ts, index=False, if_exists=self.if_exists, chunksize=5000)
+
+    def _replace(self, df):
+        db = SQLDatabase(engine_ts)
+        with db.run_transaction() as conn:
+            if self._initialized():
+                stmt_truncate = text(f"delete from {self.table_name}")
+                conn.execute(stmt_truncate)
+
+            df.to_sql(self.table_name, conn, index=False, if_exists='append', chunksize=5000)
 
     @abstractmethod
     def _full(self, **kwargs):
