@@ -1,4 +1,5 @@
-from base import *
+from common.utils import *
+from tushare_client.base import *
 
 
 class StockCalendar(AbstractDataRetriever):
@@ -20,7 +21,7 @@ class StockCalendar(AbstractDataRetriever):
     def __get_delta_stock_calendar(self, exchange):
         df_origin = self.query(fields='max(cal_date)', where=f'exchange=\'{exchange}\'')
         if df_origin.empty:
-            max_cal_date = '19810202'
+            max_cal_date = '19700101'
         else:
             max_cal_date = df_origin.iat[0, 0]
 

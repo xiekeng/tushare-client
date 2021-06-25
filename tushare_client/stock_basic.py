@@ -1,4 +1,4 @@
-from base import *
+from tushare_client.base import *
 
 
 class StockBasic(AbstractDataRetriever):

@@ -1,56 +1,17 @@
-import datetime
-import logging
 import threading
 import time
 from abc import abstractmethod
 from functools import partial
 
-from pandas.io.sql import SQLDatabase
-
-import config
 import pandas as pd
-import pymysql
 import tushare as ts
-from sqlalchemy import create_engine
+from pandas.io.sql import SQLDatabase
 from sqlalchemy import text
 
-LOG_FORMAT = "[{asctime}-{levelname}-{thread}-{classname}] {message}"
-DATE_FORMAT = '%Y%m%d'
+from common.customlog import CustomLogger
+from common.mysqlapi import *
 
 ts.set_token(config.TUSHARE_TOKEN)
-
-pymysql.install_as_MySQLdb()
-engine_ts = create_engine(config.DB_CONN_STR, echo=True)
-
-class CustomFormatter(logging.Formatter):
-    def __init__(self, fmt=None, datefmt=None, style='{', validate=True):
-        super().__init__(fmt, datefmt, style, validate)
-
-    def formatMessage(self, record):
-        return self._fmt.format_map(CustomFormatter.Default(record.__dict__))
-
-    class Default(dict):
-        def __missing__(self, key):
-            return '{' + key + '}'
-
-
-def default_logger():
-    logger = logging.getLogger()
-    logger.setLevel(logging.DEBUG)
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(CustomFormatter(LOG_FORMAT))
-    logger.addHandler(console_handler)
-
-    return logger
-
-
-class CustomLogger(object):
-    def __init__(self, logger=default_logger(), extra={}):
-        self.logger = logger
-        self.extra = extra
-
-    def __getattr__(self, name):
-        return partial(getattr(self.logger, name), extra=self.extra)
 
 
 class ThrottleDataApi(object):
@@ -103,23 +64,6 @@ class ThrottleDataApi(object):
 
 
 pro = ThrottleDataApi()
-
-
-def today(date=None):
-    if date is not None:
-        return date
-
-    return datetime.date.today().strftime(DATE_FORMAT)
-
-
-def tomorrow(date=today()):
-    current = datetime.datetime.strptime(date, DATE_FORMAT)
-    return (current + datetime.timedelta(days=1)).strftime(DATE_FORMAT)
-
-
-def yesterday(date=today()):
-    current = datetime.datetime.strptime(date, DATE_FORMAT)
-    return (current + datetime.timedelta(days=-1)).strftime(DATE_FORMAT)
 
 
 class AbstractDataRetriever(object):
