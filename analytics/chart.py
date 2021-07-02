@@ -122,6 +122,7 @@ class MacdChart(AbstractChart):
         for index, row in temp.iterrows():
             if row[0] > 0:
                 signal_buy.append(self._data[self._data.index == index]['low'] - padding)
+                print(index, 'buy')
             else:
                 signal_buy.append(np.nan)
 
@@ -140,6 +141,7 @@ class MacdChart(AbstractChart):
         for index, row in temp.iterrows():
             if row[0] < 0:
                 signal_sell.append(self._data[self._data.index == index]['high'] + padding)
+                print(index, 'sell')
             else:
                 signal_sell.append(np.nan)
 
@@ -147,5 +149,5 @@ class MacdChart(AbstractChart):
 
 
 if __name__ == '__main__':
-    MacdChart('000001.SZ', '20210101', '20210631').show()
-    BollChart('000001.SZ', '20210101', '20210631').show()
+    MacdChart('600519.SH', '20200101', '20210630').show()
+    # BollChart('000001.SZ', '20210101', '20210630').show()
