@@ -3,7 +3,7 @@ import copy
 import mplfinance as mpf
 import numpy as np
 import pandas as pd
-import talib
+import talib as tb
 from talib import MA_Type
 
 from common.mysqlapi import *
@@ -62,7 +62,7 @@ class BollChart(AbstractChart):
         super().__init__(ts_code, start_date, end_date)
 
     def _get_plots(self):
-        upper, middle, lower = talib.BBANDS(self._data.close, timeperiod=20, nbdevup=2, nbdevdn=2, matype=MA_Type.SMA)
+        upper, middle, lower = tb.BBANDS(self._data.close, timeperiod=20, nbdevup=2, nbdevdn=2, matype=MA_Type.SMA)
 
         add_plot = [
             mpf.make_addplot(upper, color='y'),
@@ -78,7 +78,7 @@ class MacdChart(AbstractChart):
         super().__init__(ts_code, start_date, end_date)
 
     def _get_plots(self):
-        DIFF, DEA, MACDHIST = talib.MACD(self._data.close, fastperiod=12, slowperiod=20, signalperiod=9)
+        DIFF, DEA, MACDHIST = tb.MACD(self._data.close, fastperiod=12, slowperiod=20, signalperiod=9)
 
         ORIGIN_MACD_HIST_UP = MACDHIST * 2
         ORIGIN_MACD_HIST_UP[ORIGIN_MACD_HIST_UP < 0] = 0
@@ -148,6 +148,22 @@ class MacdChart(AbstractChart):
         return np.array(signal_sell, dtype=object)
 
 
+class SmaChart(AbstractChart):
+    def __init__(self, ts_code, start_date, end_date):
+        super().__init__(ts_code, start_date, end_date)
+
+    def _get_plots(self):
+        tema5 = tb.TEMA(self._data.close, timeperiod=5)
+        sma5 = tb.SMA(self._data.close, timeperiod=5)
+
+        add_plot = [
+            mpf.make_addplot(tema5, color='y'),
+            mpf.make_addplot(sma5, color='b'),
+        ]
+
+        return add_plot
+
+
 if __name__ == '__main__':
-    MacdChart('600519.SH', '20200101', '20210630').show()
-    # BollChart('000001.SZ', '20210101', '20210630').show()
+    # SmaChart('000001.SZ', '20110101', '20110701').show()
+    BollChart('000001.SZ', '20210101', '20210630').show()

@@ -2,33 +2,51 @@ import json
 
 import pandas as pd
 import requests
+from pandas.io.sql import SQLDatabase
+from sqlalchemy import text
 
 from tushare_client.base import AbstractDataRetriever
+from common.utils import *
+from common.mysqlapi import *
+from tushare_client.stock_calendar import StockCalendar
 
-default_per_page = 5000
 
-
-class SwsIndustryClass(AbstractDataRetriever):
+class ConvertibleBond(AbstractDataRetriever):
     def __init__(self):
-        super().__init__('convertible_bond')
+        super().__init__('convertible_bond', 'replace')
 
     def _full(self, **kwargs):
+        df_cal_date = StockCalendar().query(fields='distinct cal_date',
+                                            where=f'is_open=\'1\' and cal_date = \'{today()}\'')
+        if df_cal_date is None or df_cal_date.empty:
+            return None
+
         json_value = json.loads(self._get_data_list())
         data = [value['cell'] for value in json_value['rows']]
 
         columns = ['bond_id', 'bond_nm', 'stock_id', 'convert_price', 'convert_price_valid_from', 'turnover_rt',
                    'rating_cd', 'issuer_rating_cd', 'guarantor', 'convert_value', 'premium_rt', 'ytm_rt', 'price',
-                   'volume']
+                   'volume', 'date']
         df = pd.DataFrame(columns=columns)
 
         for i in range(0, len(data)):
             data[i] = {key: value for key, value in data[i].items() if key in columns}
+            data[i]['date'] = today()
             df = df.append([data[i]], ignore_index=True)
 
         return df
 
     def _delta(self, **kwargs):
         return self._full(**kwargs)
+
+    def _replace(self, df):
+        db = SQLDatabase(engine_ts)
+        with db.run_transaction() as conn:
+            if self._initialized():
+                stmt_delete = text(f"delete from {self.table_name} where date = '{today()}'")
+                conn.execute(stmt_delete)
+
+            df.to_sql(self.table_name, conn, index=False, if_exists='append', chunksize=5000)
 
     @staticmethod
     def _get_data_list():
@@ -49,4 +67,4 @@ class SwsIndustryClass(AbstractDataRetriever):
 
 
 if __name__ == '__main__':
-    SwsIndustryClass().retrieve()
+    ConvertibleBond().retrieve()

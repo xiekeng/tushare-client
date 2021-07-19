@@ -17,12 +17,14 @@ class CustomFormatter(logging.Formatter):
             return '{' + key + '}'
 
 
-def default_logger():
-    logger = logging.getLogger('customLogger')
+def default_logger(logger_name='customLogger'):
+    logger = logging.getLogger(logger_name)
     logger.setLevel(config.LOG_LEVEL)
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(CustomFormatter(LOG_FORMAT))
-    logger.addHandler(console_handler)
+    if not logger.hasHandlers():
+        console_handler = logging.StreamHandler()
+        logger.addHandler(console_handler)
+    for handler in logger.handlers:
+        handler.setFormatter(CustomFormatter(LOG_FORMAT))
 
     return logger
 
