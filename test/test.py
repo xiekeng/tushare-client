@@ -1,9 +1,6 @@
-import numpy
+import numpy as np
 
-a = numpy.array([3, 2, 1, 2, 5, 7, 4, 7, 8])
+data = [1,2,3]
 
-itemindex = numpy.argwhere(a == 7)
-
-print(itemindex)
-
-print(a)
+print(np.std(data))
+print(np.sqrt(2/3))

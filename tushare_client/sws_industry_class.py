@@ -5,6 +5,7 @@ import pandas as pd
 import requests
 
 from tushare_client.base import AbstractDataRetriever
+from common.utils import *
 
 default_per_page = 5000
 
@@ -28,7 +29,9 @@ class SwsIndustryClass(AbstractDataRetriever):
                 else:
                     sws = ['', '', '']
                 df = df.append(
-                    [{'ts_code': record['股票代码'], 'name': record['股票简称'], 'sw1': sws[0], 'sw2': sws[1], 'sw3': sws[2]}],
+                    [{'ts_code': record['股票代码'], 'name': record['股票简称'],
+                      'sw1': sws[0], 'sw2': sws[1], 'sw3': sws[2],
+                      'pe': record.setdefault(f'市盈率(pe)[{today()}]', None), 'total_share': record.setdefault(f'总股本[{today()}]', None)}],
                     ignore_index=True)
 
             page = math.floor(i / default_per_page) + 2
@@ -41,7 +44,7 @@ class SwsIndustryClass(AbstractDataRetriever):
         return self._full(**kwargs)
 
     def _get_data_list(self, page=1, per_page=default_per_page):
-        iwencai_url = f'http://ai.iwencai.com/urp/v7/landing/getDataList?query=%E7%94%B3%E4%B8%87%E8%A1%8C%E4%B8%9A&page={page}&perpage={per_page}&comp_id=5722297&uuid=24087'
+        iwencai_url = f'http://ai.iwencai.com/urp/v7/landing/getDataList?query=%E7%94%B3%E4%B8%87%E8%A1%8C%E4%B8%9A&condition=%5B%7B%22indexName%22%3A%22%E6%89%80%E5%B1%9E%E7%94%B3%E4%B8%87%E8%A1%8C%E4%B8%9A%22%7D%5D&page={page}&perpage={per_page}&comp_id=5762923&uuid=24087'
         headers = {
             'User-Agent': 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:89.0) Gecko/20100101 Firefox/89.0',
             'Accept': '*/*',
