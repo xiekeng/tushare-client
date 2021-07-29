@@ -19,6 +19,11 @@ def yesterday(date=today()):
     return (current + datetime.timedelta(days=-1)).strftime(config.DATE_FORMAT)
 
 
+def last_week(date=today()):
+    current = datetime.datetime.strptime(date, config.DATE_FORMAT)
+    return (current + datetime.timedelta(days=-7)).strftime(config.DATE_FORMAT)
+
+
 def last_month(date=today()):
     current = datetime.datetime.strptime(date, config.DATE_FORMAT)
     return (current + datetime.timedelta(days=-30)).strftime(config.DATE_FORMAT)

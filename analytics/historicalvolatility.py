@@ -4,7 +4,7 @@ import os
 import pandas as pd
 import numpy as np
 import logging
-from concurrent.futures import ProcessPoolExecutor, as_completed
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 from common.mysqlapi import *
 from common.utils import *
 
@@ -15,17 +15,17 @@ std_close_prices = []
 pd.set_option('display.max_rows', None)
 pd.set_option('display.max_columns', None)
 
+
 def std_close_price(ts_code):
-    global annual_std_close_prices, monthly_std_close_prices
     pid = os.getpid()
     engine = mysql_engines.setdefault(pid, create_engine(config.DB_CONN_STR, echo=True))
 
-    annual = pd.read_sql_query(
+    yearly = pd.read_sql_query(
         f"select trade_date, close from stock_daily where trade_date > '{last_year()}' and ts_code='{ts_code}'", engine)
+    monthly = yearly[yearly['trade_date']>last_month()]
+    weekly = yearly[yearly['trade_date']>last_week()]
 
-    monthly = annual[annual['trade_date']>last_month()]
-
-    return np.std(annual['close']), np.std(monthly['close'])
+    return np.std(yearly['close']), np.std(monthly['close']), np.std(weekly['close'])
 
 
 stock_basic_list = pd.read_sql_query(
@@ -36,15 +36,16 @@ with ProcessPoolExecutor(multiprocessing.cpu_count()) as executor:
     for future in as_completed(futures):
         ts_code = futures[future]
         try:
-            annual, monthly = future.result()
-            std_close_prices.append([ts_code, annual, monthly])
+            yearly, monthly, weekly = future.result()
+            std_close_prices.append([ts_code, yearly, monthly, weekly])
         except Exception as ex:
             logger.exception(ex)
 # annual_std_close_prices = {row[0]: std_close_price(row[0], lastyear()) for index, row in stock_basic_list.iterrows()}
-df = pd.DataFrame(std_close_prices, columns=['ts_code', 'annual', 'monthly'])
-# print(df)
-
-print(df[df['monthly']>df['annual']])
+df = pd.DataFrame(std_close_prices, columns=['ts_code', 'yearly', 'monthly', 'weekly'])
+df = df[df['monthly']>df['yearly']]
+df = df[df['weekly']>df['yearly']]
+print(df)
+print(df['ts_code'].to_list())
 # annual_std_close_prices - monthly_std_close_prices
 # print
 
