@@ -15,21 +15,23 @@ std_close_prices = []
 pd.set_option('display.max_rows', None)
 pd.set_option('display.max_columns', None)
 
+now = today()
+
 
 def std_close_price(ts_code):
     pid = os.getpid()
     engine = mysql_engines.setdefault(pid, create_engine(config.DB_CONN_STR, echo=True))
 
     yearly = pd.read_sql_query(
-        f"select trade_date, close from stock_daily where trade_date > '{last_year()}' and ts_code='{ts_code}'", engine)
-    monthly = yearly[yearly['trade_date']>last_month()]
-    weekly = yearly[yearly['trade_date']>last_week()]
+        f"select trade_date, close from stock_daily where trade_date > '{last_year(now)}' and trade_date <= '{now}' and ts_code='{ts_code}'", engine)
+    monthly = yearly[yearly['trade_date']>last_month(now)]
+    weekly = yearly[yearly['trade_date']>last_week(now)]
 
     return np.std(yearly['close']), np.std(monthly['close']), np.std(weekly['close'])
 
 
 stock_basic_list = pd.read_sql_query(
-    f"select ts_code from stock_basic where list_status = 'L' and name not like '%%ST%%' and list_date < {last_year()}", engine_ts)
+    f"select ts_code from stock_basic where list_status = 'L' and name not like '%%ST%%'", engine_ts)
 
 with ProcessPoolExecutor(multiprocessing.cpu_count()) as executor:
     futures = {executor.submit(std_close_price, ts_code=row[0]) : row[0] for index, row in stock_basic_list.iterrows()}
@@ -49,6 +51,6 @@ print(df['ts_code'].to_list())
 # annual_std_close_prices - monthly_std_close_prices
 # print
 
-# 4200  688685.SH   2.038009   2.357660
-# 4203  688690.SH   5.462352   5.512829
-# 4204  688698.SH   2.032806   2.093397
+# 20210802 ['002125.SZ', '002533.SZ', '002687.SZ', '300041.SZ', '300329.SZ', '300346.SZ', '300648.SZ', '300660.SZ', '300661.SZ', '300693.SZ', '300827.SZ', '600366.SH', '601669.SH', '601998.SH', '603315.SH', '688601.SH', '688663.SH']
+# 20210803 ['000507.SZ', '002097.SZ', '002121.SZ', '300041.SZ', '300101.SZ', '300289.SZ', '300329.SZ', '300346.SZ', '300508.SZ', '300656.SZ', '300693.SZ', '300827.SZ', '600888.SH', '601669.SH', '601877.SH', '601998.SH', '603315.SH', '688128.SH', '688663.SH']
+

@@ -1,6 +1,4 @@
-import numpy as np
+from tushare_client.base import *
 
-data = [1,2,3]
-
-print(np.std(data))
-print(np.sqrt(2/3))
+df = pro.index_daily(ts_code='399300.SZ')
+print(df)
