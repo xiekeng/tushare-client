@@ -15,7 +15,7 @@ std_close_prices = []
 pd.set_option('display.max_rows', None)
 pd.set_option('display.max_columns', None)
 
-now = today()
+now = '20210813'
 
 
 def std_close_price(ts_code):

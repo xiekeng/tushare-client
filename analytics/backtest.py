@@ -9,9 +9,9 @@ from common.mysqlapi import *
 from stratedy import *
 
 
-def prepare(ts_code):
+def prepare():
     df_daily = pd.read_sql_query(
-        f"SELECT * FROM tushare.view_qfq where ts_code='{ts_code}' order by trade_date",
+        f"SELECT report_date trade_date, open, high, low, close, volume FROM tushare.view_futures_shfe_daily where `name`='铝' order by report_date",
         engine_ts)
 
     df_daily.index = pd.to_datetime(df_daily['trade_date'])
@@ -19,13 +19,13 @@ def prepare(ts_code):
 
     return df_daily
 
-stratedy = SmaStrategy
-k_line_data = prepare(stratedy.ts_code)
+stratedy = KdjStrategy
+k_line_data = prepare()
 data = bt.feeds.PandasData(dataname=k_line_data, fromdate=stratedy.fromdate, todate=stratedy.todate)
 
 back_trader = bt.Cerebro()
 back_trader.adddata(data)
-back_trader.addstrategy(SmaStrategy)
+back_trader.addstrategy(stratedy)
 
 startCash = 100000
 back_trader.broker.setcash(startCash)

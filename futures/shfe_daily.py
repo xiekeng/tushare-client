@@ -65,7 +65,7 @@ class ShfeDaily(AbstractDataRetriever):
                 else:
                     turnover = None
                 df = df.append(
-                    {'productid':data['PRODUCTID'], 'name':data['PRODUCTNAME'],'deliverymonth':data['DELIVERYMONTH'],
+                    {'productid':data['PRODUCTID'].strip(), 'name':data['PRODUCTNAME'].strip(),'deliverymonth':data['DELIVERYMONTH'],
                      'open':data['OPENPRICE'], 'high':data['HIGHESTPRICE'], 'low':data['LOWESTPRICE'],
                      'close':data['CLOSEPRICE'],'settlement':data['SETTLEMENTPRICE'],'zd1_chg':data['ZD1_CHG'],
                      'zd2_chg':data['ZD2_CHG'],'volume':data['VOLUME'],  'turnover':turnover,

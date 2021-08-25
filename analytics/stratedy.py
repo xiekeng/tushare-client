@@ -57,10 +57,12 @@ class MacdStrategy(BaseStratedy):
 
 
 class KdjStrategy(BaseStratedy):
+    fromdate = datetime.date(2021, 1, 1)
+    todate = datetime.date(2021, 8, 18)
+
     def __init__(self):
         self.dataclose = self.datas[0].close
         self.order = None
-        self.countindex = 0
 
         Stochastic = bt.talib.STOCH(self.datas[0].high,
                                                self.datas[0].low,
@@ -81,15 +83,12 @@ class KdjStrategy(BaseStratedy):
             print('waiting for the deal')
 
         if not self.position:
-            if self.signal[0] > 0 and self.slowd > 0:
+            if self.signal[0] > 0 and self.slowk[0] < 25:
                 # print(f"{round(self.dataclose[0],2)} * {100*(math.floor(self.broker.getcash()/round(self.dataclose[0],2)/100))} = {round(self.dataclose[0],2) * 100*(math.floor(self.broker.getcash()/round(self.dataclose[0],2)/100))} vs {self.broker.getcash()}")
-                self.order = self.buy(size=100*(math.floor(self.broker.getcash()/round(self.dataclose[0],2)/100)))
+                self.order = self.buy(size=1)
         else:
-            if self.signal[0] < 0 and self.slowd < 0:
-                self.countindex += 1
-                if self.countindex == 1:
-                    self.order = self.sell(size=self.position.size)
-                    self.countindex = 0
+            if self.signal[0] < 0 and self.slowk[0] > 75:
+                self.order = self.sell(size=self.position.size)
 
     def notify_order(self, order):
         if order.status == order.Completed:

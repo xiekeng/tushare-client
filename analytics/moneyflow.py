@@ -8,26 +8,32 @@ pd.set_option('display.max_rows', None)
 pd.set_option('display.max_columns', None)
 
 cal_date = pd.read_sql_query(
-    f"select distinct cal_date from stock_calendar where is_open='1' and cal_date <= {today()} order by cal_date desc limit 0, 10",
+    f"select distinct cal_date from stock_calendar "
+    f"where is_open='1' and cal_date <= {today()} order by cal_date desc limit 0, 10",
     engine_ts)
 # print(cal_date.iloc[9, 0])
 
-df_sw_amount = pd.read_sql_query(
-    f"select d.trade_date, sw1, sw2, sw3, vol, amount from sw_industry_classification c, stock_daily d where trade_date >= {cal_date.iloc[9, 0]} and c.ts_code=d.ts_code",
+df_type_amount = pd.read_sql_query(
+    f"select d.trade_date, CONCAT_WS('-', sw1, sw2, sw3) type, vol, amount "
+    f"from sw_industry_classification c, stock_daily d "
+    f"where trade_date >= {cal_date.iloc[9, 0]} and c.ts_code=d.ts_code ",
+    # f"select d.trade_date, concept type, vol, amount "
+    # f"from stock_concept c, stock_daily d "
+    # f"where trade_date >= {cal_date.iloc[9, 0]} and c.ts_code=d.ts_code "
+    # f"and concept not in ('标普道琼斯A股', '融资融券', '富时罗素概念', '富时罗素概念股', '深股通', '沪股通', '机构重仓', '转融券标的', 'MSCI概念')",
     engine_ts)
-# print('df_sw_amount', df_sw_amount)
+# print('df_type_amount', df_type_amount)
 
-df1 = df_sw_amount.groupby(['sw1', 'sw2', 'sw3', 'trade_date']).sum()
-df1['diffs'] = df1.groupby(['sw1', 'sw2', 'sw3'])['amount'].transform(lambda x: x.diff())
-df1 = df1.groupby(['trade_date', 'sw1', 'sw2', 'sw3']).sum().sort_values(['trade_date', 'amount'], ascending=[True, False])
+df1 = df_type_amount.groupby(['type', 'trade_date']).sum()
+df1['diffs'] = df1.groupby(['type'])['amount'].transform(lambda x: x.diff())
+df1 = df1.groupby(['trade_date', 'type']).sum().sort_values(['trade_date', 'amount'], ascending=[True, False])
 df2 = df1.groupby(['trade_date']).head(5)
 # df2.to_csv('../datafiles/top10')
 print('df2: ', df2)
 
 df3 = df2.reset_index()
-df3['sw'] = df3['sw1'] + '-' + df3['sw2'] + '-' + df3['sw3']
-swmap = {sw:df3[df3['sw'] == sw][['trade_date', 'amount']].set_index('trade_date') for sw in df3['sw'].unique()}
-result = pd.concat(swmap.values(), keys=swmap.keys(), axis=1)
+typemap = {type:df3[df3['type'] == type][['trade_date', 'amount']].set_index('trade_date') for type in df3['type'].unique()}
+result = pd.concat(typemap.values(), keys=typemap.keys(), axis=1).sort_index()
 
 print('result: ', result)
 
